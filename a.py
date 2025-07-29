@@ -1,10 +1,14 @@
 import socket
 import os
+import subprocess
 
 HOST = '0.0.0.0'
 PORT = 65432
 
-print(f"🔌 Listening for commands on port {PORT}...")
+# Get current terminal PID to avoid killing it
+current_pid = os.getppid()
+
+print(f"🔌 Listening for commands on port {PORT}... (Listener PID: {current_pid})")
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.bind((HOST, PORT))
@@ -23,9 +27,16 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 print(f"📥 Received command: {data}")
 
                 if data.lower() == "launch":
-# kill all current gnome terminal
-os.system("gnome-terminal -- bash -c 'pkill gnome-terminal; exec bash'")
-                    # Launch a terminal that runs node v1.js and keeps terminal open
+                    # Find all gnome-terminal processes except current one
+                    output = subprocess.getoutput("pgrep -f gnome-terminal")
+                    pids = [pid for pid in output.strip().split("\n") if pid and int(pid) != current_pid]
+
+                    for pid in pids:
+                        os.system(f"kill {pid}")
+                    
+                    print("🔁 Old gnome-terminal instances killed.")
+
+                    # Launch new one
                     os.system("gnome-terminal -- bash -c 'node v1.js; exec bash'")
                     print("🚀 v1.js launched.")
                 else:
